@@ -1,0 +1,29 @@
+# Caddy-vHosts für den Sentinel-Stack, in /etc/caddy/Caddyfile auf netcup einfügen.
+# VORAUSSETZUNG: DNS-Records (grey / DNS-only, NICHT Cloudflare-proxied, sonst schlägt
+# Caddy-ACME fehl) status.djouhri.de → 192.0.2.10 (A) / IPv6 (AAAA).
+# (analytics.djouhri.de/Umami wurde am 2026-07-26 auf Owner-Wunsch entfernt.)
+
+status.djouhri.de {
+	encode zstd gzip
+
+	# Heim-Heartbeat-Push (host/node1 pushen an /api/v1/endpoints/heim_*/external) geht an
+	# die PRIVATE Instanz (:8281), die die heim-external-endpoints definiert. So bleibt der
+	# Dead-Man-Switch mit UNVERÄNDERTEN Sendern funktionsfähig, ohne dass die internen
+	# Hostnamen (host/node1) auf der öffentlichen Anzeige auftauchen.
+	handle /api/v1/endpoints/heim_* {
+		reverse_proxy 127.0.0.1:8281
+	}
+
+	# Alles andere (öffentliches Dashboard + Status-API) → öffentliche, SAUBERE Instanz (:8280),
+	# die nur die professionellen Endpoints kennt (keine privaten Ziele, keine internen Namen).
+	handle {
+		reverse_proxy 127.0.0.1:8280
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

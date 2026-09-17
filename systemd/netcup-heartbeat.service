@@ -1,0 +1,9 @@
+[Unit]
+Description=Heim->netcup Heartbeat (Dead-Man-Switch an Gatus)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# via bash aufgerufen (kein +x-Bit nötig). Kanonischer Script-Pfad auf host.
+ExecStart=/bin/bash /home/user/docker/netcup-sentinel/scripts/heartbeat-send.sh

@@ -1,0 +1,10 @@
+[Unit]
+Description=Sentinel: unabhaengige Off-Site-Backup-Verifikation (restic check von netcup aus)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/netcup-sentinel/scripts/backup-verify.sh
+Nice=15
+IOSchedulingClass=best-effort

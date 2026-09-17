@@ -1,0 +1,9 @@
+[Unit]
+Description=Heim->netcup Heartbeat alle 5min
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

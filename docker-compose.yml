@@ -1,0 +1,71 @@
+# netcup External Sentinel, der „Außenposten" des Homelabs.
+#
+# Warum auf netcup: der einzige Host AUSSERHALB des Heim-Doppel-NAT → kann das Heim
+# von außen beobachten und überlebt, wenn zuhause Strom/Internet/host ausfallen.
+#
+#   gatus     , externe Uptime-Überwachung der Public-Endpoints + Status-Seite
+#                (status.djouhri.de) + Heartbeat-Empfänger (Dead-Man-Switch fürs Heim)
+#
+# (Umami-Analytics wurde am 2026-07-26 auf Owner-Wunsch entfernt, djouhri.de bleibt
+#  bewusst tracking-frei.)
+#
+# Alle Ports NUR 127.0.0.1 → host-natives Caddy terminiert TLS (Auto-TLS).
+services:
+  gatus:
+    # v5.36.0 (war v5.20.0 bis 2026-08-11): erst ab v5.21.0 kennt Gatus
+    # 'external-endpoints[].heartbeat' (PR #1173). v5.20.0 hat den heartbeat-Block in
+    # config-private.yaml still ignoriert - unbekannte YAML-Felder wirft der Parser
+    # kommentarlos weg. Der Dead-Man-Switch war dadurch seit seiner Einrichtung am
+    # 2026-07-27 nie scharf: 4 Tage Funkstille von node1 loesten keinen Alarm aus.
+    image: twinproduction/gatus:v5.36.0
+    container_name: sentinel-gatus
+    restart: unless-stopped
+    env_file: [.env]
+    ports:
+      - "127.0.0.1:8280:8080"
+    volumes:
+      - ./gatus/config.yaml:/config/config.yaml:ro
+      - gatus-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    memswap_limit: 128m
+    # KEIN Docker-Healthcheck: das gatus-Image ist distroless (scratch), es enthaelt NUR
+    # das gatus-Binary, kein wget/curl/sh. Jeder exec-basierte Healthcheck scheitert daher
+    # mit "executable file not found" und markiert den Container faelschlich als unhealthy
+    # (Fehlbefund 2026-07-26, FailingStreak >6000, Container lief die ganze Zeit fehlerfrei).
+    # Gesundheit wird extern gemessen: Gatus ueberwacht sich selbst nicht, aber Caddy liefert
+    # 502 auf status.djouhri.de falls das Binary tot ist, und der Heartbeat-Ausfall alarmiert.
+
+  # PRIVATE Instanz: vollständige interne Sicht (alle Endpoints inkl. Shops + Heim-Heartbeat)
+  # + ALLE ntfy-Alerts. NICHT öffentlich sichtbar, nur 127.0.0.1:8281 (SSH-Tunnel). Caddy
+  # leitet zusätzlich nur den Heartbeat-Push-Pfad (/api/v1/endpoints/heim_*) hierher, damit
+  # der Dead-Man-Switch mit unveränderten host/node1-Sendern weiterläuft, ohne die internen
+  # Hostnamen auf der öffentlichen Seite zu zeigen.
+  gatus-private:
+    # Traegt den Heim-Heartbeat -> braucht zwingend >= v5.21.0 (s. Kommentar oben).
+    image: twinproduction/gatus:v5.36.0
+    container_name: sentinel-gatus-private
+    restart: unless-stopped
+    env_file: [.env]
+    ports:
+      - "127.0.0.1:8281:8080"
+    volumes:
+      - ./gatus/config-private.yaml:/config/config.yaml:ro
+      - gatus-data-private:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    memswap_limit: 128m
+
+volumes:
+  gatus-data:
+  gatus-data-private:
