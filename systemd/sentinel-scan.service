@@ -1,0 +1,9 @@
+[Unit]
+Description=Sentinel: externer Angriffsflaechen-Scan der Heim-Public-IP (nmap)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/netcup-sentinel/scripts/attack-surface-scan.sh
+Nice=15
